@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ɵɵsetComponentScope } from '@angular/core';
 import { environment } from '../environments/environment';
+import { Participant } from './models/participant';
 import {
   MatSnackBar,
   MatSnackBarHorizontalPosition,
@@ -24,11 +25,12 @@ export class AppComponent implements OnInit{
   audio = true;
   callJoined = null;
   videoEnabled = false;
-  screenShared = false;
   recordingStarted = false;
   listener = false;
 
-  participantsList = [];
+  public participantsList: Participant[] = [];
+  public user: Participant;
+  public hostNames: string[] = [];
   conference: any;
   conferenceStarted = false;
 
@@ -45,9 +47,6 @@ export class AppComponent implements OnInit{
       if (stream.getVideoTracks().length) {
         this.addVideoNode(participant, stream);
       }
-      if (stream.type === 'ScreenShare') {
-        //this.addScreenShareNode(stream);
-      }
     });
 
     VoxeetSDK.conference.on('streamRemoved', (participant, stream) => {
@@ -63,9 +62,6 @@ export class AppComponent implements OnInit{
         });
         this.removeParticipantNode(participant);
       }
-      if (stream.type === 'ScreenShare') {
-        //this.removeScreenShareNode();
-      }
     });
 
     VoxeetSDK.conference.on('streamUpdated', (participant, stream) => {
@@ -78,25 +74,27 @@ export class AppComponent implements OnInit{
 
     VoxeetSDK.conference.on('participantAdded', (participant, stream) => {
       console.log('participantAdded with participant id' + participant.id + ' with stream type: ' + this.fetchStreamStype(stream));
-      this.addParticipantNode(participant);
+      if(participant.status !== 'Left'){
+        this.addParticipantNode(participant);
+      }
       this.conferenceStarted = VoxeetSDK.conference.participants.length > 0;
     });
 
     VoxeetSDK.conference.on('participantUpdated', (participant, stream) => {
       console.log('participantUpdated with participant id' + participant.id + ' with stream type: ' + this.fetchStreamStype(stream));
+      console.log(participant);
       if (participant.status === 'Left') {
         this.removeParticipantNode(participant);
       }
     });
 
-    VoxeetSDK.notification.on('conferenceEnded', (participant, stream) => {
+    VoxeetSDK.notification.on('ended', (participant, stream) => {
       console.log('Conference has ended' + participant.info.name);
       this.removeAllParticipantNodes();
       this.reset();
     });
-
-    VoxeetSDK.command.on('received', (participant, message) => {
-      alert('New message by ' + participant.info.name + ': ' + message);
+    VoxeetSDK.conference.on("error", (error) => {
+      console.log('Conference error' + error);
     });
   }
 
@@ -173,7 +171,13 @@ export class AppComponent implements OnInit{
         videoNode.setAttribute('height', String(220));
         videoNode.setAttribute('width', String(300));
         videoNode.setAttribute('class', String('mt-2'));
+        videoNode.style.padding = "10px";
         videoContainer.appendChild(videoNode);
+        let textNode = document.createElement('p') as HTMLParagraphElement;
+        textNode.setAttribute('id', 'text-' + participant.id);
+        textNode.textContent = participant.info.name;
+        textNode.style.display = "inline";
+        videoContainer.appendChild(textNode);
         videoNode.autoplay = true;
         videoNode.muted = true;
       }
@@ -183,14 +187,18 @@ export class AppComponent implements OnInit{
   removeVideoNode(participant) {
     const videoNode = document.getElementById('video-' + participant.id) as HTMLVideoElement;
     const videoNodeUndefined = document.getElementById('video-undefined') as HTMLVideoElement;
+    const textNode = document.getElementById('text-' + participant.id) as HTMLParagraphElement;
+    const textNodeUndefined = document.getElementById('text-undefined') as HTMLParagraphElement;
 
     if (videoNode) {
       this.closeCamera(videoNode);
       videoNode.parentNode.removeChild(videoNode);
+      textNode.parentNode.removeChild(textNode);
     }
     if (videoNodeUndefined) {
       this.closeCamera(videoNodeUndefined);
       videoNode.parentNode.removeChild(videoNodeUndefined);
+      textNode.parentNode.removeChild(textNodeUndefined);
     }
   }
   closeCamera(videoNode) {
@@ -206,18 +214,27 @@ export class AppComponent implements OnInit{
     if (VoxeetSDK.conference.participants.length) {
       VoxeetSDK.session.close();
     }
-    if (this.validateUserAndConferenceName()) {
+    if(this.validateUserAndConferenceName()) {
       this.setInProgress(true);
       this.createSessionForUser()
         .then(() => {
           VoxeetSDK.conference.create({alias: this.conferenceName})
             .then((conference) => {
               VoxeetSDK.conference.listen(conference)
-                .then(() => {
+                .then((res) => {
                   console.log('Listening conference');
                   this.callJoined = true;
                   this.listener = true;
                   this.setInProgress(false);
+
+                  //Add to participant list
+                  this.user = new Participant();
+                  this.user.id = VoxeetSDK.session.participant.id;
+                  this.user.name = VoxeetSDK.session.participant.info.name;
+                  this.user.type = "listener"
+                  this.user.isSessionUser = true;
+                  this.participantsList.push(this.user);
+                  console.log('user', this.user);
                 })
                 .catch(e => {
                   console.log('Listening conference failed' + e);
@@ -228,34 +245,25 @@ export class AppComponent implements OnInit{
     }
   }
   addParticipantNode(participant) {
-    const participantsList = document.getElementById('participants-list');
-
-    if (participantsList) {
-
-      // if the participant is the current session user, don't add himself to the list
-      if (participant.id === VoxeetSDK.session.participant.id) {
-        return;
-      }
-
-      let participantNode = document.getElementById('participant-' + participant.id);
-
-      // If Participant Node does not exists
-      if (!participantNode) {
-        participantNode = document.createElement('li');
-        participantNode.setAttribute('id', 'participant-' + participant.id);
-        participantNode.innerText = `${participant.info.name}`;
-        this.openSnackBar(`${participant.info.name}` + ' has joined the conference');
-
-        participantsList.appendChild(participantNode);
-      }
+    if (participant.id === VoxeetSDK.session.participant.id) {
+      return;
     }
+    let tempUser = new Participant();
+    tempUser.id = participant.id;
+    tempUser.name = participant.info.name;
+    tempUser.type = participant.type;
+    tempUser.isSessionUser = false;
+    console.log('tempUser', tempUser)
+    console.log('participantToAdd', participant);
+
+    this.participantsList.push(tempUser);
   }
 
 
   // Navigate To Host page and to Listener Page
   toHost(){
     if(this.name.length > 0){
-      if(this.name == "Joshua" || this.name == "John"){
+      if(this.name === "Joshua" || this.name === "John"){
         this.StartSession();
         this.tabIndex = 1;
       } else {
@@ -297,6 +305,15 @@ export class AppComponent implements OnInit{
                 .then(() => {
                   this.setInProgress(false);
                   this.callJoined = true;
+
+                  //Add to participant list
+                  this.user = new Participant();
+                  this.user.id = VoxeetSDK.session.participant.id;
+                  this.user.name = VoxeetSDK.session.participant.info.name;
+                  this.user.type = VoxeetSDK.session.participant.type;
+                  this.user.isSessionUser = true;
+                  this.participantsList.push(this.user);
+                  console.log('user', this.user);
                 })
                 .catch((e) => {
                   this.setInProgress(false);
@@ -322,9 +339,9 @@ export class AppComponent implements OnInit{
       this.tabIndex = 0;
       VoxeetSDK.conference.leave()
         .then(() => {
-          this.removeAllParticipantNodes();
           VoxeetSDK.session.close()
             .then(() => {
+              this.removeAllParticipantNodes();
               this.callJoined = false;
               this.listener = false;
               this.setInProgress(false);
@@ -336,8 +353,9 @@ export class AppComponent implements OnInit{
         });
     }
   }
-
-
+  endConference(){
+    // Not method to end conference?
+  }
 
   // Audios
   stopAudioStream() {
@@ -360,19 +378,14 @@ export class AppComponent implements OnInit{
 
   // Participants
   removeAllParticipantNodes() {
-    this.participantsList = VoxeetSDK.conference.participants;
-    this.participantsList.forEach((value, key) => {
-      this.removeParticipantNode(value);
-    });
+    this.participantsList = [];
   }
-  removeParticipantNode(participant) {
-    const participantNode = document.getElementById('participant-' + participant.id);
 
-    if (participantNode) {
-      this.openSnackBar(`${participant.info.name}` + ' has left the conference');
-      participantNode.parentNode.removeChild(participantNode);
-    }
+  removeParticipantNode(participant) {
+    this.participantsList = this.participantsList.filter(x => x.id !== participant.id);
+    this.openSnackBar(`${participant.info.name}` + ' has left the conference');
   }
+
   // Validators
   authChecker(mode: string){
     if(this.name.length > 0){
@@ -409,7 +422,6 @@ export class AppComponent implements OnInit{
     this.videoEnabled = false;
     this.audio = true;
     this.callJoined = false;
-    this.screenShared = false;
     this.recordingStarted = false;
     this.setInProgress(false);
   }
@@ -421,8 +433,8 @@ export class AppComponent implements OnInit{
     });
   }
   private showAllVideoParticipants() {
-    this.participantsList = VoxeetSDK.conference.participants;
-    this.participantsList.forEach((value, key) => {
+    let tempList = VoxeetSDK.conference.participants;
+    tempList.forEach((value, key) => {
       if (value.id !== VoxeetSDK.session.participant.id
       ) {
 

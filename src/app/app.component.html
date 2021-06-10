@@ -12,13 +12,13 @@
   </button>
 </mat-toolbar>
 
-<mat-tab-group color="primary" backgroundColor="accent" dynamicHeight [(selectedIndex)]="tabIndex" (selectedTabChange)="tabClick($event)">
+<mat-tab-group color="primary" backgroundColor="accent" dynamicHeight [(selectedIndex)]="tabIndex" >
   <!-- Welcome Tab -->
   <mat-tab label="Welcome">
     <div style="padding: 50px;">
       <h1>Welcome to {{title}}</h1>
       <p>Your latest video conferncing app that allow you to broadcast your content</p>
-      <p>Enter the below information to proceed as Host or Listener. (Max 2 Hosts, only Josh and John can be host..auth based on name string validation)</p>
+      <p>Enter the below information to proceed as Host or Listener. (Max 2 Hosts, only Joshua and John can be host..auth based on name string validation)</p>
 
       <mat-label>Enter you namt to proceed Name: </mat-label>
       <input matInput type="text" [(ngModel)]="name">
@@ -45,6 +45,7 @@
       <button style="margin:5px;" mat-raised-button color="primary" (click)="leaveSession()">Leave Call</button>
       <button style="margin:5px;" mat-raised-button color="secondary" (click)="!videoEnabled ? startVideo() : leaveVideo();">{{!videoEnabled ? 'Start Video' : 'Stop video'}}</button>
       <button style="margin:5px;" mat-raised-button color="secondary" (click)="muteYourself()">{{audio ? 'Mute' : 'Unmute'}}</button>
+      <button style="margin:5px;" mat-raised-button color="secondary" (click)="endConference()">End Conference</button>
     </div>
   </mat-tab>
 
@@ -59,9 +60,17 @@
 </mat-tab-group>
 
 <!-- Video Feeds -->
-<div style="padding: 10px;" [hidden]="!callJoined" id="video-container"></div>
-<div style="padding: 10px;"[hidden]="!callJoined" id="screenshare-container"></div>
-<div style="padding: 10px;" [hidden]="!callJoined" id="participants">
+<div>
+  <div *ngIf="tabIndex !== 0" style="padding: 10px;" [hidden]="!callJoined" id="video-container">
+
+</div>
+<!-- Participants -->
+</div>
+<div *ngIf="tabIndex !== 0" style="padding: 10px;" [hidden]="!callJoined" id="participants">
   <h3>Participants</h3>
-  <ul id="participants-list"></ul>
+  <ul>
+    <li *ngFor="let item of participantsList">
+      {{ item.name }} {{ item.type === "user" ? ' - Host ': ' '}}{{ item.id === user?.id ? '(me)' : ''}}
+    </li>
+  </ul>
 </div>
