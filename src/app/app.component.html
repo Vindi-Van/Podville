@@ -42,15 +42,19 @@
     <div style="padding: 50px;">
       <h1>Welcome Host: {{name}}!</h1>
       <p>Conference ID: {{conferenceName}}</p>
-      <button style="margin:5px;" mat-raised-button color="warm" (click)="leaveSession()">Leave Call</button>
-      <button style="margin:5px;" mat-raised-button color="warm" (click)="!videoEnabled ? startVideo() : leaveVideo();">{{!videoEnabled ? 'Start Video' : 'Stop video'}}</button>
+      <button style="margin:5px;" mat-raised-button color="primary" (click)="leaveSession()">Leave Call</button>
+      <button style="margin:5px;" mat-raised-button color="secondary" (click)="!videoEnabled ? startVideo() : leaveVideo();">{{!videoEnabled ? 'Start Video' : 'Stop video'}}</button>
+      <button style="margin:5px;" mat-raised-button color="secondary" (click)="muteYourself()">{{audio ? 'Mute' : 'Unmute'}}</button>
     </div>
   </mat-tab>
 
   <!-- Listener Tab -->
   <mat-tab label="Listeners" [disabled]="authChecker('list')">
-
-
+    <div style="padding: 50px;">
+      <h1>Welcome Listener: {{name}}!</h1>
+      <p>Conference ID: {{conferenceName}}</p>
+      <button style="margin:5px;" mat-raised-button color="primary" (click)="leaveSession()">Leave Call</button>
+    </div>
   </mat-tab>
 </mat-tab-group>
 
