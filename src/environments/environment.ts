@@ -3,7 +3,9 @@
 // The list of file replacements can be found in `angular.json`.
 
 export const environment = {
-  production: false
+  production: false,
+  consumerKey: "-3w6kK6LAYTg007CVowuHQ==",
+  consumerSecret: "40Ja51_i04oPej9njsa2mCB_BnzFS1xd4Yo3RPziWT8=",
 };
 
 /*
@@ -13,4 +15,4 @@ export const environment = {
  * This import should be commented out in production mode because it will have a negative impact
  * on performance if an error is thrown.
  */
-// import 'zone.js/dist/zone-error';  // Included with Angular CLI.
+// import 'zone.js/plugins/zone-error';  // Included with Angular CLI.
